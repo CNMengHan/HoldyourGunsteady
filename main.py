@@ -165,12 +165,14 @@ class Game:
             with open("highscore.json", "w", encoding='utf-8') as f:
                 json.dump({"highscore": self.highscore}, f)
         
+        accuracy = (self.hits / self.total_shots * 100) if self.total_shots > 0 else 0
+        
         with open("game_records.txt", "a", encoding='utf-8') as f:
             f.write(f"游戏时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"难度: {self.difficulty}\n")
             f.write(f"最终得分: {self.score}\n")
             f.write(f"最大连击: {self.max_combo}\n")
-            f.write(f"命中率: {(self.hits/self.total_shots*100):.1f}%\n")
+            f.write(f"命中率: {accuracy:.1f}%\n")
             f.write("-"*50 + "\n")
 
     def load_sounds(self):
