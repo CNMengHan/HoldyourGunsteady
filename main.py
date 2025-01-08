@@ -19,11 +19,15 @@ YELLOW = (255, 255, 0)
 ORANGE = (255, 165, 0)
 BACKGROUND_COLOR = (13, 17, 23)
 DIFFICULTY_LEVELS = {
+    "人机": {"spawn_interval": 1.5, "ball_speed": 2.0, "score_multiplier": 0.5, "ball_count": 2},
     "简单": {"spawn_interval": 1.2, "ball_speed": 1.5, "score_multiplier": 1, "ball_count": 3},
-    "普通": {"spawn_interval": 1.0, "ball_speed": 1.0, "score_multiplier": 2, "ball_count": 3},
-    "困难": {"spawn_interval": 0.8, "ball_speed": 0.7, "score_multiplier": 3, "ball_count": 3}
+    "普通": {"spawn_interval": 1.0, "ball_speed": 1.0, "score_multiplier": 2, "ball_count": 4},
+    "困难": {"spawn_interval": 0.8, "ball_speed": 0.7, "score_multiplier": 3, "ball_count": 7},
+    "炼狱": {"spawn_interval": 0.6, "ball_speed": 0.5, "score_multiplier": 5, "ball_count": 10}
 }
 FONT_PATH = "msyh.ttf"
+
+FPS_OPTIONS = [30, 60, 144]
 
 screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 pygame.display.set_caption("Hold your gun steady")
@@ -72,10 +76,11 @@ class Ball:
                 self.radius = 0
                 return True
         else:
+            delta_time = 1/60
             for particle in self.explosion_particles:
-                particle[0] += particle[2]
-                particle[1] += particle[3]
-                particle[4] -= 0.1
+                particle[0] += particle[2] * delta_time * 60
+                particle[1] += particle[3] * delta_time * 60
+                particle[4] -= 0.1 * delta_time * 60
             self.explosion_particles = [p for p in self.explosion_particles if p[4] > 0]
             if not self.explosion_particles:
                 return True
@@ -130,6 +135,8 @@ class Game:
         self.hits = 0
         self.sound_enabled = True
         self.load_sounds()
+        self.current_fps = 60
+        self.fps_index = 1
         
     def reset(self):
         self.score = 10
@@ -198,7 +205,7 @@ class Game:
                 self.draw_gameover()
 
             pygame.display.flip()
-            clock.tick(FPS)
+            clock.tick(self.current_fps)
 
         pygame.quit()
 
@@ -219,15 +226,28 @@ class Game:
                 pygame.quit()
                 exit()
             elif 400 <= pos[1] <= 435:
-                diff_width = 80
-                total_width = diff_width * 3 + 20 * 2
+                diff_width = 100
+                diff_spacing = 20
+                total_width = diff_width * len(DIFFICULTY_LEVELS.keys()) + diff_spacing * (len(DIFFICULTY_LEVELS.keys()) - 1)
                 start_x = WINDOW_WIDTH//2 - total_width//2
+                
                 for i, diff in enumerate(DIFFICULTY_LEVELS.keys()):
-                    button_x = start_x + i * (diff_width + 20)
+                    button_x = start_x + i * (diff_width + diff_spacing)
                     if button_x <= pos[0] <= button_x + diff_width:
                         self.difficulty = diff
                         break
-            elif 455 <= pos[1] <= 485 and WINDOW_WIDTH//2 - 50 <= pos[0] <= WINDOW_WIDTH//2 + 50:
+            elif 455 <= pos[1] <= 485:
+                fps_width = 80
+                fps_spacing = 20
+                total_fps_width = fps_width * len(FPS_OPTIONS) + fps_spacing * (len(FPS_OPTIONS) - 1)
+                fps_start_x = WINDOW_WIDTH//2 - total_fps_width//2
+                
+                for i, fps in enumerate(FPS_OPTIONS):
+                    button_x = fps_start_x + i * (fps_width + fps_spacing)
+                    if button_x <= pos[0] <= button_x + fps_width:
+                        self.current_fps = fps
+                        break
+            elif 500 <= pos[1] <= 530 and WINDOW_WIDTH//2 - 50 <= pos[0] <= WINDOW_WIDTH//2 + 50:
                 self.sound_enabled = not self.sound_enabled
         elif self.menu_state == "game" and not self.paused:
             self.total_shots += 1
@@ -276,15 +296,17 @@ class Game:
                                quit_rect.centery - quit_text.get_height()//2))
 
         y_pos = 400
-        diff_width = 80
-        total_width = diff_width * 3 + 20 * 2
+        diff_width = 100
+        diff_spacing = 20
+        total_width = diff_width * len(DIFFICULTY_LEVELS.keys()) + diff_spacing * (len(DIFFICULTY_LEVELS.keys()) - 1)
         start_x = WINDOW_WIDTH//2 - total_width//2
         
         for i, diff in enumerate(DIFFICULTY_LEVELS.keys()):
-            button_x = start_x + i * (diff_width + 20)
+            button_x = start_x + i * (diff_width + diff_spacing)
             button_rect = pygame.Rect(button_x, y_pos, diff_width, 35)
             is_hover = button_rect.collidepoint(mouse_pos)
             is_selected = self.difficulty == diff
+            
             if is_selected:
                 color = GREEN if not is_hover else (0, 200, 0)
             else:
@@ -295,12 +317,38 @@ class Game:
             screen.blit(text, (button_rect.centerx - text.get_width()//2,
                               button_rect.centery - text.get_height()//2))
 
+        fps_y_pos = 455
+        fps_width = 80
+        fps_spacing = 20
+        total_fps_width = fps_width * len(FPS_OPTIONS) + fps_spacing * (len(FPS_OPTIONS) - 1)
+        fps_start_x = WINDOW_WIDTH//2 - total_fps_width//2
+        
+        fps_label = self.font_small.render("帧率:", True, WHITE)
+        screen.blit(fps_label, (fps_start_x - fps_label.get_width() - 10, fps_y_pos + 8))
+        
+        for i, fps in enumerate(FPS_OPTIONS):
+            button_x = fps_start_x + i * (fps_width + fps_spacing)
+            button_rect = pygame.Rect(button_x, fps_y_pos, fps_width, 30)
+            is_hover = button_rect.collidepoint(mouse_pos)
+            is_selected = self.current_fps == fps
+            
+            if is_selected:
+                color = BLUE if not is_hover else (0, 150, 255)
+            else:
+                color = (100, 100, 100) if not is_hover else (120, 120, 120)
+                
+            pygame.draw.rect(screen, color, button_rect, border_radius=6)
+            text = self.font_small.render(f"{fps}", True, WHITE)
+            screen.blit(text, (button_rect.centerx - text.get_width()//2,
+                              button_rect.centery - text.get_height()//2))
+
         sound_text = self.font_normal.render(f"声音: {'开' if self.sound_enabled else '关'}", True, 
                                            GREEN if self.sound_enabled else RED)
-        sound_rect = sound_text.get_rect(center=(WINDOW_WIDTH//2, 470))
+        sound_rect = sound_text.get_rect(center=(WINDOW_WIDTH//2, 515))
         screen.blit(sound_text, sound_rect)
+        
         highscore_text = self.font_normal.render(f"最高分: {self.highscore}", True, WHITE)
-        screen.blit(highscore_text, (WINDOW_WIDTH//2 - highscore_text.get_width()//2, 520))
+        screen.blit(highscore_text, (WINDOW_WIDTH//2 - highscore_text.get_width()//2, 550))
         screen.blit(author, (WINDOW_WIDTH//2 - author.get_width()//2, WINDOW_HEIGHT - 30))
 
     def run_countdown(self):
